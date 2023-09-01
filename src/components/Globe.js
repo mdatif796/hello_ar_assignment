@@ -3,83 +3,56 @@ import * as THREE from "three";
 
 const Globe = () => {
   useEffect(() => {
-    let targetRotationX = 0.05;
-    let targetRotationY = 0.02;
-    let mouseX = 0,
-      mouseXOnMouseDown = 0,
-      mouseY = 0,
-      mouseYOnMouseDown = 0;
+    let targetRotationX = 0;
+    let targetRotationY = 0;
+    let isMouseDown = false;
     const windowHalfX = 150;
     const windowHalfY = 150;
     const slowingFactor = 0.98;
-    const dragFactor = 0.0002;
+    const dragFactor = 0.002; // Adjust this value for rotation speed
 
-    const onDocumentMouseDown = (event) => {
-      event.preventDefault();
-      document.addEventListener("mousemove", onDocumentMouseMove, false);
-      document.addEventListener("mouseup", onDocumentMouseUp, false);
-      mouseXOnMouseDown = event.clientX - windowHalfX;
-      mouseYOnMouseDown = event.clientY - windowHalfY;
-    };
-
-    const onDocumentMouseMove = (event) => {
-      mouseX = event.clientX - windowHalfX;
-      targetRotationX = (mouseX - mouseXOnMouseDown) * dragFactor;
-      mouseY = event.clientY - windowHalfY;
-      targetRotationY = (mouseY - mouseYOnMouseDown) * dragFactor;
-    };
-
-    const onDocumentMouseUp = () => {
-      document.removeEventListener("mousemove", onDocumentMouseMove, false);
-      document.removeEventListener("mouseup", onDocumentMouseUp, false);
-    };
-
+    const container = document.getElementById("globe-container");
     const scene = new THREE.Scene();
     const renderer = new THREE.WebGLRenderer({ alpha: true });
     renderer.setSize(300, 300);
     renderer.setClearColor(0x000000, 0); // Clear color with alpha 0
-
-    const container = document.getElementById("globe-container");
     container.innerHTML = "";
     container.appendChild(renderer.domElement);
 
     // Create earthGeometry
-    const earthGeometry = new THREE.SphereGeometry(0.5, 64, 64);
+    const earthGeometry = new THREE.SphereGeometry(0.5, 32, 32);
     const earthMaterial = new THREE.MeshPhongMaterial({
       map: new THREE.TextureLoader().load("/earthmap.jpeg"),
       bumpMap: new THREE.TextureLoader().load("/earthbump.jpeg"),
-      bumpScale: 0.03,
+      bumpScale: 0.01,
       transparent: true, // Enable transparency
     });
     const earthMesh = new THREE.Mesh(earthGeometry, earthMaterial);
     scene.add(earthMesh);
 
     // Add a marker icon
-    const markerGeometry = new THREE.BufferGeometry();
-    const markerVertices = new Float32Array([0, 0, 0]);
-    markerGeometry.setAttribute(
-      "position",
-      new THREE.BufferAttribute(markerVertices, 3)
-    );
-    const markerMaterial = new THREE.PointsMaterial({
-      color: 0xff0000,
-      size: 0.005,
-    });
-    const markerMesh = new THREE.Points(markerGeometry, markerMaterial);
+    const markerTexture = new THREE.TextureLoader().load("/arr.jpg");
+    const markerMaterial = new THREE.SpriteMaterial({ map: markerTexture });
+    const markerSprite = new THREE.Sprite(markerMaterial);
 
-    const indiaLatitude = 20.5937;
-    const indiaLongitude = 78.9629;
-    const indiaPhi = (90 - indiaLatitude) * (Math.PI / 180);
-    const indiaTheta = (indiaLongitude + 180) * (Math.PI / 180);
+    const markerLat = 20.5937;
+    const markerLon = 78.9629;
+    const markerPhi = (90 - markerLat) * (Math.PI / 180);
+    const markerTheta = (markerLon + 180) * (Math.PI / 180);
 
-    const earthRadius = 0.5;
-    markerMesh.position.set(
-      earthRadius * Math.sin(indiaPhi) * Math.cos(indiaTheta),
-      earthRadius * Math.cos(indiaPhi),
-      earthRadius * Math.sin(indiaPhi) * Math.sin(indiaTheta)
+    const earthRadius = 0.5; // Radius of the Earth sphere
+
+    // Calculate the position of the marker on the Earth's surface
+    markerSprite.position.set(
+      earthRadius * Math.sin(markerPhi) * Math.cos(markerTheta),
+      earthRadius * Math.cos(markerPhi),
+      earthRadius * Math.sin(markerPhi) * Math.sin(markerTheta)
     );
-    markerMesh.scale.set(0.05, 0.05, 0.05); // Adjust the scale as needed
-    scene.add(markerMesh);
+
+    const markerSize = 0.1; // Adjust the size of the marker
+    markerSprite.scale.set(markerSize, markerSize, 1);
+
+    scene.add(markerSprite);
 
     // Set up lights
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -92,8 +65,18 @@ const Globe = () => {
     // Other parts of your scene setup...
 
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
-    camera.position.z = 2.5; // Adjust this value as needed
-    camera.lookAt(earthMesh.position); // Look at the center of the Earth
+    camera.position.z = 1.7;
+
+    const updateRotation = (event) => {
+      if (isMouseDown) {
+        const rect = container.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+
+        targetRotationX = (mouseX - windowHalfX) * dragFactor;
+        targetRotationY = (mouseY - windowHalfY) * dragFactor;
+      }
+    };
 
     const render = () => {
       earthMesh.rotation.y += targetRotationX;
@@ -109,7 +92,15 @@ const Globe = () => {
     };
     animate();
 
-    document.addEventListener("mousedown", onDocumentMouseDown, false);
+    container.addEventListener("mousedown", (event) => {
+      isMouseDown = true;
+    });
+
+    document.addEventListener("mousemove", updateRotation);
+
+    document.addEventListener("mouseup", () => {
+      isMouseDown = false;
+    });
   }, []);
 
   return <div id="globe-container"></div>;
